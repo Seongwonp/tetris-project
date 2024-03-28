@@ -567,7 +567,7 @@ def _achievement_lines(profile: ProfileStore) -> List[str]:
             "CLEAR LINES, PLAY MORE,",
             "AND TRY DIFFERENT MODES",
         ]
-    return [f"✓ {item}" for item in unlocked]
+    return [f"[X] {item}" for item in unlocked]
 
 
 def _achievement_footer_lines(profile: ProfileStore) -> List[str]:

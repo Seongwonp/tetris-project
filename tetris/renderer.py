@@ -6,62 +6,55 @@ from .game import GameState
 from .modes import MODE_LIST
 from .themes import Theme, THEMES
 
-UI_SCALE = 1.125  # 32 -> 36
-
-
-def ui(value: int) -> int:
-    return int(round(value * UI_SCALE))
-
-
-CELL = ui(32)
-SIDEBAR = ui(210)
+CELL     = 30
+SIDEBAR  = 190
 SCREEN_W = COLS * CELL + SIDEBAR
 SCREEN_H = ROWS * CELL
 
-BG     = (18,  18,  28)
-PANEL  = (25,  25,  42)
-DGRAY  = (30,  30,  38)
-GRAY   = (55,  55,  70)
-BORDER = (80,  80, 130)
+BG     = (0,   0,   0)
+PANEL  = (10,  10,  10)
+DGRAY  = (18,  18,  18)
+GRAY   = (38,  38,  38)
+BORDER = (110, 110, 110)
 WHITE  = (240, 240, 240)
-DIM    = (130, 130, 150)
-GOLD   = (255, 215,  50)
-GREEN  = (80,  255, 130)
-CYAN   = (80,  210, 255)
+DIM    = (135, 135, 135)
+GOLD   = (255, 220,   0)
+GREEN  = (0,   230,  90)
+CYAN   = (0,   200, 255)
 
 
 def apply_theme(theme: Theme) -> None:
     global BG, PANEL, DGRAY, GRAY, BORDER, WHITE, DIM, GOLD, GREEN, CYAN
-    BG = theme.bg
-    PANEL = theme.panel
-    DGRAY = theme.dgray
-    GRAY = theme.gray
+    BG     = theme.bg
+    PANEL  = theme.panel
+    DGRAY  = theme.dgray
+    GRAY   = theme.gray
     BORDER = theme.border
-    WHITE = theme.white
-    DIM = theme.dim
-    GOLD = theme.gold
-    GREEN = theme.green
-    CYAN = theme.cyan
+    WHITE  = theme.white
+    DIM    = theme.dim
+    GOLD   = theme.gold
+    GREEN  = theme.green
+    CYAN   = theme.cyan
 
 
 class Renderer:
     def __init__(self, screen: pygame.Surface):
-        self.screen = screen
-        self.font_title = self._font(ui(44), bold=True)
-        self.font_big   = self._font(ui(30), bold=True)
-        self.font_med   = self._font(ui(18), bold=True)
-        self.font_sm    = self._font(ui(13))
-        self.font_tiny  = self._font(ui(11))
+        self.screen     = screen
+        self.font_title = pygame.font.Font(None, 54)
+        self.font_big   = pygame.font.Font(None, 40)
+        self.font_med   = pygame.font.Font(None, 30)
+        self.font_sm    = pygame.font.Font(None, 24)
+        self.font_tiny  = pygame.font.Font(None, 20)
 
-    # ── 메인 ──────────────────────────────────────────────
+    # ── 인게임 ─────────────────────────────────────────────
     def draw(self, state: GameState) -> None:
         self.screen.fill(BG)
         self._draw_board(state)
         self._draw_sidebar(state)
         if state.game_over:
-            self._draw_overlay("GAME OVER", f"Score: {state.score:,}", "PRESS ANY KEY", (255, 70, 70))
+            self._draw_overlay("GAME OVER", f"SCORE: {state.score:,}", "PRESS ANY KEY", (255, 60, 60))
         elif state.paused:
-            self._draw_overlay("PAUSED", "", "(P) to resume", (180, 180, 255))
+            self._draw_overlay("PAUSED", "", "(P) RESUME", (160, 160, 255))
         pygame.display.flip()
 
     def draw_start(self, demo_state: GameState, start_level: int, blink_on: bool) -> None:
@@ -72,20 +65,18 @@ class Renderer:
         self._draw_start_title()
         pygame.display.flip()
 
-    # ── 보드 영역 ─────────────────────────────────────────
+    # ── 보드 ───────────────────────────────────────────────
     def _draw_board(self, state: GameState) -> None:
         surf = pygame.Surface((COLS * CELL, ROWS * CELL))
         surf.fill(DGRAY)
-
         self._draw_grid(surf)
         self._draw_locked(surf, state)
         self._draw_ghost(surf, state)
         self._draw_piece(surf, state.piece)
-
         self.screen.blit(surf, (0, 0))
         pygame.draw.rect(self.screen, BORDER, (0, 0, COLS * CELL, ROWS * CELL), 2)
         if state.speed_up_timer > 0:
-            self._text("SPEED UP!", self.font_med, GOLD, COLS * CELL // 2, ui(36))
+            self._text("SPEED UP!", self.font_med, GOLD, COLS * CELL // 2, 22)
 
     def _draw_grid(self, surf: pygame.Surface) -> None:
         for r in range(ROWS + 1):
@@ -112,8 +103,8 @@ class Renderer:
                         (gy + r) * CELL + 2,
                         CELL - 4, CELL - 4,
                     )
-                    ghost_color = tuple(max(0, x // 5) for x in state.piece.color)
-                    pygame.draw.rect(surf, ghost_color, rect, width=2, border_radius=4)
+                    ghost_color = tuple(min(v // 5, 50) for v in state.piece.color)
+                    pygame.draw.rect(surf, ghost_color, rect, width=1)
 
     def _draw_piece(self, surf: pygame.Surface, piece: Piece) -> None:
         for r, row in enumerate(piece.shape):
@@ -121,180 +112,157 @@ class Renderer:
                 if v:
                     self._cell(surf, piece.x + c, piece.y + r, piece.color)
 
-    # ── 사이드바 ──────────────────────────────────────────
+    # ── 사이드바 ────────────────────────────────────────────
     def _draw_sidebar(self, state: GameState) -> None:
         bx = COLS * CELL
-        pygame.draw.rect(self.screen, PANEL, (bx, 0, SIDEBAR, SCREEN_H))
+        pygame.draw.rect(self.screen, PANEL,  (bx, 0, SIDEBAR, SCREEN_H))
         pygame.draw.rect(self.screen, BORDER, (bx, 0, SIDEBAR, SCREEN_H), 1)
+        pygame.draw.rect(self.screen, GRAY,   (bx + 3, 3, SIDEBAR - 6, SCREEN_H - 6), 1)
+        cx = bx + SIDEBAR // 2
 
-        cx = bx + SIDEBAR // 2  # 중앙 x
+        self._hlabel("NEXT", cx, 14)
+        self._hsep(bx, 26)
+        nq = getattr(state, "next_queue", None) or [state.next]
+        for i, piece in enumerate(nq[:3]):
+            self._mini_board(cx, 32 + i * 54, piece)
 
-        # NEXT
-        self._label("NEXT", cx, ui(28))
-        next_queue = getattr(state, "next_queue", None) or [state.next]
-        for index, piece in enumerate(next_queue[:3]):
-            self._mini_board(
-                cx,
-                ui(50 + index * 52),
-                piece,
-                cell=ui(13),
-                box_w=ui(100),
-                box_h=ui(44),
-            )
-
-        # HOLD
-        self._label("HOLD", cx, ui(218))
+        self._hsep(bx, 196)
+        self._hlabel("HOLD", cx, 206)
         dimmed = state.held is not None and not state.can_hold
-        self._mini_board(cx, ui(244), state.held, dimmed=dimmed)
+        self._mini_board(cx, 216, state.held, dimmed=dimmed)
 
-        # SCORE / LEVEL / LINES
-        score_y = ui(326)
-        self._stat("SCORE", f"{state.score:,}", cx, score_y, GOLD)
+        self._hsep(bx, 274)
+        y = 284
+        self._stat("SCORE", f"{state.score:,}", cx, y, GOLD)
+        ey = y + 34
         if state.last_score_delta:
-            delta = f"+{state.last_score_delta:,} {state.last_score_reason}"
-            self._text(delta, self.font_tiny, DIM, cx, score_y + ui(40))
+            self._text(f"+{state.last_score_delta:,}", self.font_tiny, GREEN, cx, ey)
+            ey += 14
         if state.combo > 0:
-            self._text(f"COMBO x{state.combo}", self.font_tiny, CYAN, cx, score_y + ui(58))
+            self._text(f"COMBO x{state.combo}", self.font_tiny, CYAN, cx, ey)
+            ey += 14
         if state.back_to_back:
-            self._text("B2B", self.font_tiny, GOLD, cx, score_y + ui(76))
-        self._stat("LEVEL", str(state.level),   cx, ui(386), GREEN)
-        self._stat("LINES", str(state.lines),   cx, ui(444), CYAN)
+            self._text("B2B", self.font_tiny, GOLD, cx, ey)
 
-        # 조작 안내
-        controls = [
-            ("← →",  "Move"),
-            ("↑",    "Rotate"),
-            ("↓",    "Soft drop"),
-            ("SPACE","Hard drop"),
-            ("C",    "Hold"),
-            ("P",    "Pause"),
-            ("R",    "Restart"),
-        ]
-        y = ui(506)
+        self._hsep(bx, 360)
+        self._stat("LEVEL", str(state.level), cx, 370, GREEN)
+        self._hsep(bx, 410)
+        self._stat("LINES", str(state.lines), cx, 420, CYAN)
+
+        self._hsep(bx, 462)
+        self._hlabel("KEYS", cx, 472)
+        controls = [("< >", "Move"), ("^", "Rotate"), ("v", "Soft"),
+                    ("SPC", "Hard"), ("C", "Hold"), ("P", "Pause")]
+        ky = 484
         for key, desc in controls:
-            ks = self.font_tiny.render(key, True, (210, 210, 100))
+            ks = self.font_tiny.render(key,  True, GOLD)
             ds = self.font_tiny.render(desc, True, DIM)
-            self.screen.blit(ks, (bx + ui(8),  y))
-            self.screen.blit(ds, (bx + ui(70), y))
-            y += ui(16)
+            self.screen.blit(ks, (bx + 6,  ky))
+            self.screen.blit(ds, (bx + 58, ky))
+            ky += 16
 
     def _mini_board(self, cx: int, cy: int, piece: Optional[Piece],
-                    cell: int = ui(22), dimmed: bool = False,
-                    box_w: int = ui(100), box_h: int = ui(70)) -> None:
+                    cell: int = 12, dimmed: bool = False,
+                    box_w: int = 88, box_h: int = 46) -> None:
         bx = cx - box_w // 2
-        pygame.draw.rect(self.screen, DGRAY, (bx, cy, box_w, box_h), border_radius=ui(6))
+        pygame.draw.rect(self.screen, DGRAY, (bx, cy, box_w, box_h))
+        pygame.draw.rect(self.screen, GRAY,  (bx, cy, box_w, box_h), 1)
         if piece is None:
             return
         pw = len(piece.shape[0]) * cell
-        ph = len(piece.shape)    * cell
+        ph = len(piece.shape) * cell
         sx = cx - pw // 2
         sy = cy + box_h // 2 - ph // 2
         color = tuple(v // 2 for v in piece.color) if dimmed else piece.color
-        hi    = tuple(min(255, int(v * 1.3)) for v in color)
         for r, row in enumerate(piece.shape):
             for c, v in enumerate(row):
                 if v:
                     rect = pygame.Rect(sx + c * cell + 1, sy + r * cell + 1, cell - 2, cell - 2)
-                    pygame.draw.rect(self.screen, color, rect, border_radius=ui(3))
-                    pygame.draw.rect(self.screen, hi,    rect, width=2, border_radius=ui(3))
+                    pygame.draw.rect(self.screen, color, rect)
+                    hi = tuple(min(255, x + 60) for x in color)
+                    pygame.draw.line(self.screen, hi, rect.topleft, rect.topright)
+                    pygame.draw.line(self.screen, hi, rect.topleft, rect.bottomleft)
 
-    # ── 오버레이 ──────────────────────────────────────────
-    def _draw_overlay(self, title: str, sub: str, hint: str,
-                      title_color: tuple) -> None:
+    # ── 오버레이 ────────────────────────────────────────────
+    def _draw_overlay(self, title: str, sub: str, hint: str, title_color: tuple) -> None:
         ov = pygame.Surface((COLS * CELL, ROWS * CELL), pygame.SRCALPHA)
-        ov.fill((0, 0, 0, 165))
+        ov.fill((0, 0, 0, 200))
         self.screen.blit(ov, (0, 0))
         cx, cy = COLS * CELL // 2, ROWS * CELL // 2
-        self._text(title, self.font_big,  title_color, cx, cy - ui(40))
+        self._text(title, self.font_big,  title_color, cx, cy - 36)
         if sub:
-            self._text(sub,   self.font_med,  WHITE,       cx, cy + ui(8))
-        self._text(hint,  self.font_sm,   DIM,         cx, cy + ui(48))
+            self._text(sub,  self.font_med, WHITE,      cx, cy + 4)
+        self._text(hint, self.font_sm,   DIM,          cx, cy + 38)
 
-    # ── 시작 화면 ─────────────────────────────────────────
+    # ── 시작화면 ────────────────────────────────────────────
     def _draw_start_panel(self, start_level: int, blink_on: bool) -> None:
         ov = pygame.Surface((COLS * CELL, ROWS * CELL), pygame.SRCALPHA)
-        ov.fill((0, 0, 0, 150))
+        ov.fill((0, 0, 0, 195))
         self.screen.blit(ov, (0, 0))
-
-        panel_w = COLS * CELL - ui(60)
-        panel_h = ui(210)
-        panel_x = (COLS * CELL - panel_w) // 2
-        panel_y = (ROWS * CELL - panel_h) // 2
-        panel = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
-        pygame.draw.rect(self.screen, PANEL, panel, border_radius=ui(12))
-        pygame.draw.rect(self.screen, BORDER, panel, width=2, border_radius=ui(12))
-
+        pw, ph = 248, 176
+        px = (COLS * CELL - pw) // 2
+        py = (ROWS * CELL - ph) // 2
+        pygame.draw.rect(self.screen, PANEL,  (px, py, pw, ph))
+        pygame.draw.rect(self.screen, BORDER, (px, py, pw, ph), 2)
+        pygame.draw.rect(self.screen, GRAY,   (px + 4, py + 4, pw - 8, ph - 8), 1)
         cx = COLS * CELL // 2
-        y = panel_y + ui(46)
+        y = py + 28
         if blink_on:
-            self._text("PRESS ANY KEY", self.font_big, WHITE, cx, y)
-        self._text("LEVEL", self.font_sm, DIM, cx, y + ui(44))
-        self._text(str(start_level), self.font_med, GOLD, cx, y + ui(70))
-        self._text("UP/DOWN TO CHANGE", self.font_sm, DIM, cx, y + ui(98))
-        self._text("M TO MUTE", self.font_sm, DIM, cx, y + ui(126))
+            self._text("PRESS ANY KEY", self.font_med, WHITE, cx, y)
+        self._text("LEVEL",             self.font_sm,  DIM,  cx, y + 38)
+        self._text(str(start_level),    self.font_big, GOLD, cx, y + 60)
+        self._text("^ / v  CHANGE",    self.font_sm,  DIM,  cx, y + 92)
+        self._text("M  MUTE",          self.font_sm,  DIM,  cx, y + 114)
 
     def _draw_start_sidebar(self, start_level: int) -> None:
         bx = COLS * CELL
-        pygame.draw.rect(self.screen, PANEL, (bx, 0, SIDEBAR, SCREEN_H))
+        pygame.draw.rect(self.screen, PANEL,  (bx, 0, SIDEBAR, SCREEN_H))
         pygame.draw.rect(self.screen, BORDER, (bx, 0, SIDEBAR, SCREEN_H), 1)
-
+        pygame.draw.rect(self.screen, GRAY,   (bx + 3, 3, SIDEBAR - 6, SCREEN_H - 6), 1)
         cx = bx + SIDEBAR // 2
-        self._text("WELCOME", self.font_med, WHITE, cx, ui(34))
-        self._label("LEVEL", cx, ui(74))
-        self._text(str(start_level), self.font_med, GOLD, cx, ui(96))
-
-        self._label("CONTROLS", cx, ui(150))
-        controls = [
-            ("← →",  "Move"),
-            ("↑",    "Rotate"),
-            ("↓",    "Soft drop"),
-            ("SPACE","Hard drop"),
-            ("C",    "Hold"),
-            ("P",    "Pause"),
-            ("R",    "Restart"),
-        ]
-        y = ui(180)
+        self._text("WELCOME",        self.font_sm,  DIM,  cx, 28)
+        self._hlabel("START LEVEL",  cx, 58)
+        self._text(str(start_level), self.font_big, GOLD, cx, 82)
+        self._hlabel("CONTROLS",     cx, 130)
+        controls = [("< >", "Move"), ("^", "Rotate"), ("v", "Soft"),
+                    ("SPC", "Hard"), ("C", "Hold"), ("P", "Pause"), ("R", "Restart")]
+        ky = 152
         for key, desc in controls:
-            ks = self.font_tiny.render(key, True, (210, 210, 100))
+            ks = self.font_tiny.render(key,  True, GOLD)
             ds = self.font_tiny.render(desc, True, DIM)
-            self.screen.blit(ks, (bx + ui(8),  y))
-            self.screen.blit(ds, (bx + ui(70), y))
-            y += ui(16)
+            self.screen.blit(ks, (bx + 6,  ky))
+            self.screen.blit(ds, (bx + 58, ky))
+            ky += 16
 
     def _draw_start_title(self) -> None:
-        cx = SCREEN_W // 2
-        self._text("TETRIS", self.font_title, WHITE, cx, ui(24))
+        self._text("TETRIS", self.font_title, GOLD, SCREEN_W // 2, 20)
 
-    # ── 메뉴/설정 화면 ─────────────────────────────────────
+    # ── 메뉴 화면 ───────────────────────────────────────────
     def draw_title_menu(self, demo_state: GameState, selected: int, mode_title: str,
                         theme_title: str, bgm_title: str, blink_on: bool) -> None:
         self.screen.fill(BG)
         self._draw_board(demo_state)
+        info = f"MODE:{mode_title}  THEME:{theme_title}  BGM:{bgm_title}"
         self._draw_menu_panel(
             "TETRIS",
-            [
-                "ENTER TO START",
-                f"MODE: {mode_title}",
-                f"THEME: {theme_title}",
-                f"BGM: {bgm_title}",
-            ],
-            ["START", "MODE", "SETTINGS", "SCORES", "QUIT"],
-            selected,
-            blink_on,
+            [info],
+            ["START", "MODE", "SETTINGS", "SCORES", "REPLAYS", "ACHIEVEMENTS", "QUIT"],
+            selected, blink_on,
         )
         pygame.display.flip()
 
     def draw_mode_menu(self, demo_state: GameState, selected: int, start_level: int) -> None:
         self.screen.fill(BG)
         self._draw_board(demo_state)
-        items = [f"{mode.title} — {mode.description}" for mode in MODE_LIST]
-        self._draw_menu_panel("MODE SELECT", [f"LEVEL: {start_level}", "ENTER to confirm"], items, selected, True)
+        items = [f"{m.title} - {m.description}" for m in MODE_LIST]
+        hint = f"LEVEL:{start_level}  [< >] change level  [ENTER] confirm  [ESC] back"
+        self._draw_menu_panel("MODE SELECT", [hint], items, selected, False)
         pygame.display.flip()
 
     def draw_settings_menu(self, demo_state: GameState, lines: List[str], selected: int, waiting: bool) -> None:
         self.screen.fill(BG)
         self._draw_board(demo_state)
-        hint = "PRESS A KEY" if waiting else "ENTER to edit / ESC back"
+        hint = "PRESS A KEY..." if waiting else "[ENTER] edit  [ESC] back"
         self._draw_menu_panel("SETTINGS", [hint], lines, selected, waiting)
         pygame.display.flip()
 
@@ -307,126 +275,113 @@ class Renderer:
         self._draw_menu_panel(title, footer_lines, lines, 999, False)
         pygame.display.flip()
 
-    def draw_result_menu(self, demo_state: GameState, title: str, lines: List[str], options: List[str], selected: int) -> None:
+    def draw_result_menu(self, demo_state: GameState, title: str, lines: List[str],
+                         options: List[str], selected: int) -> None:
         self.screen.fill(BG)
         self._draw_board(demo_state)
         self._draw_menu_panel(title, lines, options, selected, False)
         pygame.display.flip()
 
-    def _draw_menu_panel(self, title: str, top_lines: List[str], items: List[str], selected: int, blink: bool) -> None:
+    def _draw_menu_panel(self, title: str, top_lines: List[str], items: List[str],
+                         selected: int, blink: bool) -> None:
         ov = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
-        ov.fill((0, 0, 0, 155))
+        ov.fill((0, 0, 0, 215))
         self.screen.blit(ov, (0, 0))
-        panel_w = SCREEN_W - ui(70)
 
-        # dynamic height based on content so menus adapt to different item counts / screen sizes
-        title_h = self.font_title.get_height()
-        sm_h = self.font_sm.get_height()
-        med_h = self.font_med.get_height()
-        padding_v = ui(18)
-
-        top_lines_h = len(top_lines) * (sm_h + ui(6))
-        selected_item_h = med_h + ui(8)
-        normal_item_h = sm_h + ui(6)
-        items_total_h = sum(selected_item_h if i == selected else normal_item_h for i in range(len(items)))
-
-        content_h = ui(16) + title_h + ui(8) + top_lines_h + ui(8) + items_total_h + padding_v * 2
-        max_panel_h = SCREEN_H - ui(110)
-        panel_h = min(max_panel_h, max(ui(220), content_h))
-
-        panel_x = ui(35)
-        panel_y = (SCREEN_H - panel_h) // 2
-        panel = pygame.Rect(panel_x, panel_y, panel_w, panel_h)
-        pygame.draw.rect(self.screen, PANEL, panel, border_radius=ui(14))
-        pygame.draw.rect(self.screen, BORDER, panel, width=2, border_radius=ui(14))
-        pygame.draw.rect(self.screen, (255, 255, 255), (panel_x + ui(10), panel_y + ui(10), panel_w - ui(20), panel_h - ui(20)), width=1, border_radius=ui(12))
-        pygame.draw.rect(self.screen, GOLD, (panel_x, panel_y + ui(18), ui(4), panel_h - ui(36)))
-        pygame.draw.rect(self.screen, CYAN, (panel_x + panel_w - ui(4), panel_y + ui(18), ui(4), panel_h - ui(36)))
+        MX, MY = 26, 16
+        px, py = MX, MY
+        pw, ph = SCREEN_W - MX * 2, SCREEN_H - MY * 2
+        pygame.draw.rect(self.screen, PANEL,  (px, py, pw, ph))
+        pygame.draw.rect(self.screen, BORDER, (px, py, pw, ph), 2)
+        pygame.draw.rect(self.screen, GRAY,   (px + 4, py + 4, pw - 8, ph - 8), 1)
 
         cx = SCREEN_W // 2
-        y = panel_y + ui(16)
+        y  = py + 12
 
-        # subtle glow behind title (centered)
-        glow_w = max(ui(120), panel_w - ui(160))
-        glow_h = title_h + ui(12)
-        glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
-        for i in range(6):
-            alpha = max(0, 40 - i * 6)
-            rect = pygame.Rect(i * ui(2), i * ui(1), glow_w - i * ui(4), glow_h - i * ui(2))
-            pygame.draw.rect(glow_surf, (GOLD[0], GOLD[1], GOLD[2], alpha), rect, border_radius=ui(20))
-        self.screen.blit(glow_surf, (panel_x + (panel_w - glow_w) // 2, y - ui(6)))
+        ts = self.font_title.render(title, True, GOLD)
+        self.screen.blit(ts, ts.get_rect(center=(cx, y + ts.get_height() // 2)))
+        y += ts.get_height() + 6
 
-        self._text(title, self.font_title, WHITE, cx, y)
-        y += title_h + ui(8)
+        pygame.draw.line(self.screen, BORDER, (px + 8, y), (px + pw - 8, y), 1)
+        y += 8
 
         for line in top_lines:
-            fit = self._fit_text(line, self.font_sm, panel_w - ui(90))
-            self._text(fit, self.font_sm, DIM, cx, y)
-            y += sm_h + ui(6)
-        y += ui(6)
+            s = self.font_tiny.render(line, True, DIM)
+            self.screen.blit(s, s.get_rect(center=(cx, y + s.get_height() // 2)))
+            y += s.get_height() + 4
+        y += 4
 
-        # compute visible window for items (paging/scroll if too many)
-        avail_items_area = panel_h - (y - panel_y) - ui(56)
-        slot_h = normal_item_h
-        max_slots = max(1, avail_items_area // slot_h)
-        if len(items) > max_slots:
-            start_index = max(0, selected - max_slots // 2)
-            start_index = min(start_index, len(items) - max_slots)
+        footer_h  = 20 if blink else 4
+        item_area_end = py + ph - footer_h
+        item_h    = self.font_med.get_height() + 8
+        max_vis   = max(1, (item_area_end - y) // item_h)
+
+        if len(items) > max_vis and selected < 999:
+            si = max(0, selected - max_vis // 2)
+            si = min(si, len(items) - max_vis)
         else:
-            start_index = 0
-        end_index = min(len(items), start_index + max_slots)
+            si = 0
+        ei = min(len(items), si + max_vis)
 
-        for idx in range(start_index, end_index):
-            item = items[idx]
-            is_sel = (idx == selected)
-            color = GOLD if is_sel else WHITE
-            prefix = "▶ " if is_sel else "  "
-            font = self.font_sm if len(item) < 30 else self.font_tiny
-            if is_sel and selected != 999:
-                highlight = pygame.Rect(panel_x + ui(18), y - ui(12), panel_w - ui(36), ui(30))
-                glow = pygame.Surface((highlight.width + ui(12), highlight.height + ui(8)), pygame.SRCALPHA)
-                pygame.draw.rect(glow, (CYAN[0], CYAN[1], CYAN[2], 28), glow.get_rect(), border_radius=ui(12))
-                self.screen.blit(glow, (highlight.x - ui(6), highlight.y - ui(4)))
-                pygame.draw.rect(self.screen, (40, 40, 60), highlight, border_radius=ui(10))
-                pygame.draw.rect(self.screen, GOLD, highlight, width=1, border_radius=ui(10))
-            text = self._fit_text(prefix + item, font if not is_sel else self.font_med, panel_w - ui(92))
-            self._text(text, font if not is_sel else self.font_med, color, cx, y)
-            y += selected_item_h if is_sel else normal_item_h
+        if si > 0:
+            s = self.font_tiny.render("-- more above --", True, DIM)
+            self.screen.blit(s, s.get_rect(center=(cx, y + s.get_height() // 2)))
+            y += s.get_height() + 2
+
+        for idx in range(si, ei):
+            is_sel = (idx == selected) and selected != 999
+            item   = items[idx]
+            if is_sel:
+                bar = pygame.Rect(px + 8, y - 2, pw - 16, item_h - 2)
+                pygame.draw.rect(self.screen, GRAY, bar)
+                pygame.draw.rect(self.screen, GOLD, bar, 1)
+                txt = self._fit_text("> " + item, self.font_med, pw - 26)
+                s   = self.font_med.render(txt, True, GOLD)
+            else:
+                txt = self._fit_text("  " + item, self.font_sm, pw - 26)
+                s   = self.font_sm.render(txt, True, WHITE)
+            self.screen.blit(s, s.get_rect(center=(cx, y + item_h // 2 - 1)))
+            y += item_h
+
+        if ei < len(items):
+            s = self.font_tiny.render("-- more below --", True, DIM)
+            self.screen.blit(s, s.get_rect(center=(cx, y + s.get_height() // 2)))
 
         if blink:
-            self._text("PRESS ANY KEY", self.font_sm, DIM, cx, panel_y + panel_h - ui(24))
-        pygame.draw.line(self.screen, BORDER, (panel_x + ui(18), panel_y + ui(58)), (panel_x + panel_w - ui(18), panel_y + ui(58)), 1)
+            s = self.font_tiny.render("PRESS ANY KEY", True, DIM)
+            self.screen.blit(s, s.get_rect(center=(cx, py + ph - 12)))
 
-    # ── 헬퍼 ──────────────────────────────────────────────
+    # ── 헬퍼 ───────────────────────────────────────────────
     def _cell(self, surf: pygame.Surface, cx: int, cy: int, color: tuple) -> None:
-        hi = tuple(min(255, int(v * 1.3)) for v in color)
         rect = pygame.Rect(cx * CELL + 1, cy * CELL + 1, CELL - 2, CELL - 2)
-        pygame.draw.rect(surf, color, rect, border_radius=ui(4))
-        pygame.draw.rect(surf, hi,    rect, width=2, border_radius=ui(4))
+        pygame.draw.rect(surf, color, rect)
+        hi = tuple(min(255, v + 70) for v in color)
+        sh = tuple(max(0,   v - 60) for v in color)
+        pygame.draw.line(surf, hi, rect.topleft,                   rect.topright,              2)
+        pygame.draw.line(surf, hi, rect.topleft,                   rect.bottomleft,            2)
+        pygame.draw.line(surf, sh, (rect.left,   rect.bottom - 1), (rect.right, rect.bottom - 1), 1)
+        pygame.draw.line(surf, sh, (rect.right - 1, rect.top),     (rect.right - 1, rect.bottom), 1)
 
-    def _text(self, text: str, font: pygame.font.Font,
-              color: tuple, cx: int, cy: int) -> None:
+    def _text(self, text: str, font: pygame.font.Font, color: tuple, cx: int, cy: int) -> None:
         s = font.render(text, True, color)
         self.screen.blit(s, s.get_rect(center=(cx, cy)))
 
-    def _fit_text(self, text: str, font: pygame.font.Font, max_width: int) -> str:
-        if font.size(text)[0] <= max_width:
+    def _fit_text(self, text: str, font: pygame.font.Font, max_w: int) -> str:
+        if font.size(text)[0] <= max_w:
             return text
-        ellipsis = "..."
-        while text and font.size(text + ellipsis)[0] > max_width:
+        while text and font.size(text + "...")[0] > max_w:
             text = text[:-1]
-        return text + ellipsis if text else ellipsis
+        return (text + "...") if text else "..."
 
-    def _font(self, size: int, bold: bool = False) -> pygame.font.Font:
-        for name in ("Avenir Next", "Helvetica Neue", "Arial", "DejaVu Sans"):
-            path = pygame.font.match_font(name, bold=bold)
-            if path:
-                return pygame.font.Font(path, size)
-        return pygame.font.Font(None, size)
+    def _hlabel(self, text: str, cx: int, cy: int) -> None:
+        self._text(text, self.font_tiny, DIM, cx, cy)
 
     def _label(self, text: str, cx: int, cy: int) -> None:
-        self._text(text, self.font_sm, DIM, cx, cy)
+        self._hlabel(text, cx, cy)
+
+    def _hsep(self, bx: int, y: int) -> None:
+        pygame.draw.line(self.screen, GRAY, (bx + 6, y), (bx + SIDEBAR - 6, y), 1)
 
     def _stat(self, label: str, value: str, cx: int, y: int, vc: tuple) -> None:
-        self._label(label, cx, y)
-        self._text(value, self.font_med, vc, cx, y + ui(22))
+        self._hlabel(label, cx, y)
+        self._text(value, self.font_med, vc, cx, y + 20)
