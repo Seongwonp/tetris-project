@@ -18,22 +18,25 @@ class TestBoard(unittest.TestCase):
 
     def test_piece_valid_at_spawn(self):
         piece = Piece(1)  # I 피스
-        self.assertTrue(self.board.is_valid(piece.shape, 0, 3))
+        piece.x, piece.y = 3, 0
+        self.assertTrue(self.board.is_valid(piece))
 
     def test_piece_invalid_out_of_bounds_left(self):
-        piece = Piece(1)
-        self.assertFalse(self.board.is_valid(piece.shape, 0, -5))
+        piece = Piece(1)  # I 피스 (4칸 너비)
+        piece.x, piece.y = -5, 0
+        self.assertFalse(self.board.is_valid(piece))
 
     def test_piece_invalid_out_of_bounds_right(self):
-        piece = Piece(1)
-        self.assertFalse(self.board.is_valid(piece.shape, 0, 8))
+        piece = Piece(1)  # I 피스 (4칸 너비)
+        piece.x, piece.y = 8, 0  # x=8 + width=4 → col 11 > 10
+        self.assertFalse(self.board.is_valid(piece))
 
     def test_piece_invalid_below_floor(self):
-        piece = Piece(2)  # O 피스
-        self.assertFalse(self.board.is_valid(piece.shape, 20, 4))
+        piece = Piece(2)  # O 피스 (2x2)
+        piece.x, piece.y = 4, 20
+        self.assertFalse(self.board.is_valid(piece))
 
     def test_clear_full_line(self):
-        # 맨 아래 줄 전부 채우기
         for c in range(10):
             self.board.grid[19][c] = 1
         cleared = self.board.clear_lines()
@@ -55,13 +58,15 @@ class TestBoard(unittest.TestCase):
         self.assertEqual(cleared, 0)
 
     def test_ghost_y_empty_board(self):
-        piece = Piece(2)  # O 피스
-        ghost = self.board.ghost_y(piece.shape, 0, 4)
-        self.assertEqual(ghost, 18)  # 바닥에서 2칸 위
+        piece = Piece(2)  # O 피스 (2x2)
+        piece.x, piece.y = 4, 0
+        ghost = self.board.ghost_y(piece)
+        self.assertEqual(ghost, 18)  # rows=20, O피스 높이=2 → 바닥 y=18
 
     def test_lock_piece(self):
         piece = Piece(2)  # O 피스 (2x2)
-        self.board.lock(piece.shape, 18, 4)
+        piece.x, piece.y = 4, 18
+        self.board.lock(piece)
         self.assertNotEqual(self.board.grid[18][4], 0)
         self.assertNotEqual(self.board.grid[19][4], 0)
 

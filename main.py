@@ -544,7 +544,7 @@ def _score_lines(profile: ProfileStore) -> List[str]:
             lines.append(f"{MODE_BY_SLUG[mode].title}: --")
             continue
         summary = ", ".join(
-            f"{item['score']:,}/{int(item['elapsed_ms']) // 1000}s" for item in entries
+            f"{item['score']:06d}/{int(item['elapsed_ms']) // 1000}s" for item in entries
         )
         lines.append(f"{MODE_BY_SLUG[mode].title}: {summary}")
     return lines
@@ -553,8 +553,8 @@ def _score_lines(profile: ProfileStore) -> List[str]:
 def _score_footer_lines(profile: ProfileStore) -> List[str]:
     stats = profile.stats
     return [
-        f"RUNS {stats['games_played']}  LINES {stats['total_lines']}  SCORE {stats['total_score']:,}",
-        f"BEST {stats['best_score']:,}  MARATHON {stats['best_marathon_score']:,}",
+        f"RUNS {stats['games_played']}  LINES {stats['total_lines']}  SCORE {stats['total_score']:06d}",
+        f"BEST {stats['best_score']:06d}  MARATHON {stats['best_marathon_score']:06d}",
         f"TETRISES {stats['tetrises']}  T-SPINS {stats['t_spins']}  ACHIEVEMENTS {len(profile.achievements)}",
     ]
 
@@ -574,7 +574,7 @@ def _achievement_footer_lines(profile: ProfileStore) -> List[str]:
     stats = profile.stats
     return [
         f"UNLOCKED {len(profile.achievements)} / 6",
-        f"GAMES {stats['games_played']}  LINES {stats['total_lines']}  SCORE {stats['total_score']:,}",
+        f"GAMES {stats['games_played']}  LINES {stats['total_lines']}  SCORE {stats['total_score']:06d}",
         "FIRST LINE  FIRST TETRIS  FIRST T-SPIN  10K SCORE",
     ]
 
@@ -601,7 +601,7 @@ def _result_lines(state: GameState, selected_mode: GameMode, replay_path: Option
     elapsed = max(0, state.elapsed_ms // 1000)
     lines = [
         f"MODE: {selected_mode.title}",
-        f"SCORE: {state.score:,}",
+        f"SCORE: {state.score:06d}",
         f"LINES: {state.lines}",
         f"TIME: {elapsed}s",
         f"RESULT: {state.result_reason or 'DONE'}",

@@ -90,6 +90,10 @@ class GameState:
         self.elapsed_ms = 0
         self.result_reason = ""
 
+        self.clearing_rows: List[int] = []
+        self.clear_anim_timer: int = 0
+        self._pending_tspin: bool = False
+
         self._fall_acc = 0
         self._lock_timer = 0
         self._grounded = False
@@ -241,6 +245,15 @@ class GameState:
             self._on_sound("gameover")
             return
 
+        if self.clearing_rows:
+            self.clear_anim_timer -= dt
+            if self.clear_anim_timer <= 0:
+                cleared = self.board.clear_lines()
+                self.clearing_rows = []
+                self.clear_anim_timer = 0
+                self._finish_lock(cleared)
+            return
+
         self._just_locked = False
         self._contact_reset = False
         self._update_horizontal(dt)
@@ -383,10 +396,19 @@ class GameState:
 
     def _lock(self) -> None:
         self._just_locked = True
-        tspin = self._is_tspin()
-        was_b2b = self.back_to_back
+        self._pending_tspin = self._is_tspin()
         self.board.lock(self.piece)
-        cleared = self.board.clear_lines()
+
+        self.clearing_rows = [r for r in range(ROWS) if all(self.board.grid[r])]
+        if self.clearing_rows:
+            self.clear_anim_timer = 350
+            self._on_sound("clear")
+        else:
+            self._finish_lock(0)
+
+    def _finish_lock(self, cleared: int) -> None:
+        tspin = self._pending_tspin
+        was_b2b = self.back_to_back
         if cleared or tspin:
             total = self._score_lock(cleared)
             if total:

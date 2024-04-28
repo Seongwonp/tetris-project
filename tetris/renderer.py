@@ -1,3 +1,4 @@
+import os
 import pygame
 from typing import Optional, List
 from .board import ROWS, COLS
@@ -22,6 +23,34 @@ GOLD   = (255, 220,   0)
 GREEN  = (0,   230,  90)
 CYAN   = (0,   200, 255)
 
+_FONT_PATH = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts", "PressStart2P.ttf")
+
+# kind 인덱스 1-7, 레벨별로 순환 (10개 팔레트)
+LEVEL_PALETTES = [
+    [None, (  0,240,240),(240,240,  0),(160,  0,240),(  0,240,  0),(240,  0,  0),(  0, 80,240),(240,160,  0)],  # 1 클래식
+    [None, (255,160,  0),(255,120, 40),(200,100,  0),(255,180, 40),(220, 80,  0),(240,140, 20),(255,200, 60)],  # 2 앰버
+    [None, (  0,160,255),( 40,100,220),(  0,200,240),( 80,140,255),( 20, 80,200),(  0,180,200),(100,180,255)],  # 3 오션
+    [None, (  0,200, 80),( 80,220, 40),(  0,180,100),(160,240,  0),( 20,160, 60),(  0,220,120),(120,240, 60)],  # 4 포레스트
+    [None, (180,  0,240),(220, 40,200),(140,  0,200),(255,  0,200),(160, 60,240),(120,  0,160),(200, 80,255)],  # 5 퍼플
+    [None, (255, 40,  0),(255,120,  0),(200, 20,  0),(255, 80, 20),(220,  0,  0),(240,100,  0),(255,200,  0)],  # 6 파이어
+    [None, (160,220,255),(200,240,255),(120,200,240),(180,240,255),(140,210,240),(100,180,220),(220,245,255)],  # 7 아이스
+    [None, (255,200, 20),(220,160,  0),(255,230, 60),(200,140,  0),(255,180,  0),(240,200, 40),(255,250,100)],  # 8 골드
+    [None, (255,  0,128),(  0,255,128),(200,  0,255),(255,200,  0),(  0,200,255),(255, 80,200),(100,255,  0)],  # 9 네온
+    [None, (220,220,220),(180,180,180),(200,200,200),(160,160,160),(240,240,240),(140,140,140),(210,210,210)],  # 10 모노
+]
+
+
+def _level_color(kind: int, level: int) -> tuple:
+    palette = LEVEL_PALETTES[(level - 1) % len(LEVEL_PALETTES)]
+    return palette[kind]
+
+
+def _load_font(size: int) -> pygame.font.Font:
+    try:
+        return pygame.font.Font(_FONT_PATH, size)
+    except Exception:
+        return pygame.font.Font(None, size * 2)
+
 
 def apply_theme(theme: Theme) -> None:
     global BG, PANEL, DGRAY, GRAY, BORDER, WHITE, DIM, GOLD, GREEN, CYAN
@@ -40,11 +69,12 @@ def apply_theme(theme: Theme) -> None:
 class Renderer:
     def __init__(self, screen: pygame.Surface):
         self.screen     = screen
-        self.font_title = pygame.font.Font(None, 54)
-        self.font_big   = pygame.font.Font(None, 40)
-        self.font_med   = pygame.font.Font(None, 30)
-        self.font_sm    = pygame.font.Font(None, 24)
-        self.font_tiny  = pygame.font.Font(None, 20)
+        self.font_title = _load_font(24)
+        self.font_big   = _load_font(16)
+        self.font_med   = _load_font(12)
+        self.font_sm    = _load_font(10)
+        self.font_tiny  = _load_font(8)
+        self._scanline  = self._make_scanline_overlay()
 
     # ── 인게임 ─────────────────────────────────────────────
     def draw(self, state: GameState) -> None:
@@ -52,10 +82,10 @@ class Renderer:
         self._draw_board(state)
         self._draw_sidebar(state)
         if state.game_over:
-            self._draw_overlay("GAME OVER", f"SCORE: {state.score:,}", "PRESS ANY KEY", (255, 60, 60))
+            self._draw_overlay("GAME OVER", f"SCORE: {state.score:06d}", "PRESS ANY KEY", (255, 60, 60))
         elif state.paused:
             self._draw_overlay("PAUSED", "", "(P) RESUME", (160, 160, 255))
-        pygame.display.flip()
+        self._flip()
 
     def draw_start(self, demo_state: GameState, start_level: int, blink_on: bool) -> None:
         self.screen.fill(BG)
@@ -72,7 +102,7 @@ class Renderer:
         self._draw_grid(surf)
         self._draw_locked(surf, state)
         self._draw_ghost(surf, state)
-        self._draw_piece(surf, state.piece)
+        self._draw_piece(surf, state.piece, state.level)
         self.screen.blit(surf, (0, 0))
         pygame.draw.rect(self.screen, BORDER, (0, 0, COLS * CELL, ROWS * CELL), 2)
         if state.speed_up_timer > 0:
@@ -85,16 +115,26 @@ class Renderer:
             pygame.draw.line(surf, GRAY, (c * CELL, 0), (c * CELL, ROWS * CELL))
 
     def _draw_locked(self, surf: pygame.Surface, state: GameState) -> None:
+        # 라인 클리어 애니메이션: 350ms 동안 지우는 줄이 흰색으로 깜빡임
+        flash_white = (
+            state.clearing_rows
+            and (state.clear_anim_timer // 70) % 2 == 1
+        )
         for r in range(ROWS):
             for c in range(COLS):
                 kind = state.board.is_cell_filled(r, c)
                 if kind:
-                    self._cell(surf, c, r, COLORS[kind])
+                    if r in state.clearing_rows and flash_white:
+                        self._cell(surf, c, r, (255, 255, 255))
+                    else:
+                        self._cell(surf, c, r, _level_color(kind, state.level))
 
     def _draw_ghost(self, surf: pygame.Surface, state: GameState) -> None:
         gy = state.board.ghost_y(state.piece)
         if gy == state.piece.y:
             return
+        base = _level_color(state.piece.kind, state.level)
+        ghost_color = tuple(min(v // 4, 45) for v in base)
         for r, row in enumerate(state.piece.shape):
             for c, v in enumerate(row):
                 if v:
@@ -103,14 +143,14 @@ class Renderer:
                         (gy + r) * CELL + 2,
                         CELL - 4, CELL - 4,
                     )
-                    ghost_color = tuple(min(v // 5, 50) for v in state.piece.color)
                     pygame.draw.rect(surf, ghost_color, rect, width=1)
 
-    def _draw_piece(self, surf: pygame.Surface, piece: Piece) -> None:
+    def _draw_piece(self, surf: pygame.Surface, piece: Piece, level: int = 1) -> None:
+        color = _level_color(piece.kind, level)
         for r, row in enumerate(piece.shape):
             for c, v in enumerate(row):
                 if v:
-                    self._cell(surf, piece.x + c, piece.y + r, piece.color)
+                    self._cell(surf, piece.x + c, piece.y + r, color)
 
     # ── 사이드바 ────────────────────────────────────────────
     def _draw_sidebar(self, state: GameState) -> None:
@@ -133,7 +173,7 @@ class Renderer:
 
         self._hsep(bx, 274)
         y = 284
-        self._stat("SCORE", f"{state.score:,}", cx, y, GOLD)
+        self._stat("SCORE", f"{state.score:06d}", cx, y, GOLD)
         ey = y + 34
         if state.last_score_delta:
             self._text(f"+{state.last_score_delta:,}", self.font_tiny, GREEN, cx, ey)
@@ -249,7 +289,7 @@ class Renderer:
             ["START", "MODE", "SETTINGS", "SCORES", "REPLAYS", "ACHIEVEMENTS", "QUIT"],
             selected, blink_on,
         )
-        pygame.display.flip()
+        self._flip()
 
     def draw_mode_menu(self, demo_state: GameState, selected: int, start_level: int) -> None:
         self.screen.fill(BG)
@@ -257,14 +297,14 @@ class Renderer:
         items = [f"{m.title} - {m.description}" for m in MODE_LIST]
         hint = f"LEVEL:{start_level}  [< >] change level  [ENTER] confirm  [ESC] back"
         self._draw_menu_panel("MODE SELECT", [hint], items, selected, False)
-        pygame.display.flip()
+        self._flip()
 
     def draw_settings_menu(self, demo_state: GameState, lines: List[str], selected: int, waiting: bool) -> None:
         self.screen.fill(BG)
         self._draw_board(demo_state)
         hint = "PRESS A KEY..." if waiting else "[ENTER] edit  [ESC] back"
         self._draw_menu_panel("SETTINGS", [hint], lines, selected, waiting)
-        pygame.display.flip()
+        self._flip()
 
     def draw_scores_menu(self, demo_state: GameState, top_lines: List[str], bottom_lines: List[str]) -> None:
         self.draw_info_menu(demo_state, "SCORES", top_lines, bottom_lines)
@@ -273,14 +313,14 @@ class Renderer:
         self.screen.fill(BG)
         self._draw_board(demo_state)
         self._draw_menu_panel(title, footer_lines, lines, 999, False)
-        pygame.display.flip()
+        self._flip()
 
     def draw_result_menu(self, demo_state: GameState, title: str, lines: List[str],
                          options: List[str], selected: int) -> None:
         self.screen.fill(BG)
         self._draw_board(demo_state)
         self._draw_menu_panel(title, lines, options, selected, False)
-        pygame.display.flip()
+        self._flip()
 
     def _draw_menu_panel(self, title: str, top_lines: List[str], items: List[str],
                          selected: int, blink: bool) -> None:
@@ -352,6 +392,16 @@ class Renderer:
             self.screen.blit(s, s.get_rect(center=(cx, py + ph - 12)))
 
     # ── 헬퍼 ───────────────────────────────────────────────
+    def _make_scanline_overlay(self) -> pygame.Surface:
+        surf = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
+        for y in range(0, SCREEN_H, 2):
+            pygame.draw.line(surf, (0, 0, 0, 55), (0, y), (SCREEN_W, y))
+        return surf
+
+    def _flip(self) -> None:
+        self.screen.blit(self._scanline, (0, 0))
+        pygame.display.flip()
+
     def _cell(self, surf: pygame.Surface, cx: int, cy: int, color: tuple) -> None:
         rect = pygame.Rect(cx * CELL + 1, cy * CELL + 1, CELL - 2, CELL - 2)
         pygame.draw.rect(surf, color, rect)

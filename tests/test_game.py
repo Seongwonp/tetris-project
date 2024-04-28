@@ -50,6 +50,7 @@ class GameStateTests(unittest.TestCase):
         state.board.grid[ROWS - 1][:6] = [1] * 6
         _set_piece(state, 1, 6, ROWS - 1)
         state._lock()
+        state.update(400)  # advance past clear animation
 
         self.assertEqual(state.score, 100)
         self.assertEqual(state.lines, 1)
@@ -59,6 +60,7 @@ class GameStateTests(unittest.TestCase):
         state.board.grid[ROWS - 1][:6] = [1] * 6
         _set_piece(state, 1, 6, ROWS - 1)
         state._lock()
+        state.update(400)
 
         self.assertEqual(state.score, 250)
         self.assertEqual(state.lines, 2)
@@ -73,6 +75,7 @@ class GameStateTests(unittest.TestCase):
 
         _set_piece(state, 1, 9, ROWS - 4, rotation=1)
         state._lock()
+        state.update(400)  # advance past clear animation
 
         self.assertEqual(state.score, 1200)
         self.assertEqual(state.lines, 4)
