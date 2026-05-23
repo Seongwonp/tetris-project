@@ -93,15 +93,18 @@ class GameStateTests(unittest.TestCase):
         self.assertEqual(state.score, 400)
         self.assertEqual(state.lines, 0)
 
-    def test_grounded_piece_cannot_nudge(self):
+    def test_grounded_piece_can_move_during_lock_delay(self):
+        # lock delay 동안 이동/회전이 가능하고 타이머가 리셋되어야 함
         state = GameState(on_sound=lambda _: None)
-        _set_piece(state, 1, 3, ROWS - 1)
+        _set_piece(state, 1, 3, ROWS - 1)  # I-피스, 바닥 행
         state._grounded = True
+        state._lock_timer = 300  # lock delay 진행 중
         x_before = state.piece.x
 
-        self.assertFalse(state.move(-1))
-        self.assertFalse(state.rotate())
-        self.assertEqual(state.piece.x, x_before)
+        result = state.move(-1)
+        self.assertTrue(result)
+        self.assertEqual(state.piece.x, x_before - 1)
+        self.assertEqual(state._lock_timer, 0)  # 이동 시 타이머 리셋
 
 
 if __name__ == "__main__":

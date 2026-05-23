@@ -101,6 +101,7 @@ class GameState:
         self._last_kick_used = False
         self._just_locked = False
         self._contact_reset = False
+        self._contact_reset_count = 0
 
         self._left_held = False
         self._right_held = False
@@ -280,7 +281,7 @@ class GameState:
 
     # ── 내부 헬퍼 ─────────────────────────────────────────
     def _blocked(self) -> bool:
-        return self.game_over or self.paused or self._grounded
+        return self.game_over or self.paused
 
     def _set_horizontal(self, direction: int, immediate: bool) -> None:
         self._horizontal_dir = direction
@@ -322,7 +323,13 @@ class GameState:
 
     def _refresh_contact(self) -> None:
         self._grounded = not self.board.is_valid(self.piece, dy=1)
-        self._lock_timer = 0
+        if self._grounded:
+            if self._contact_reset_count < 15:
+                self._lock_timer = 0
+                self._contact_reset_count += 1
+        else:
+            self._lock_timer = 0
+            self._contact_reset_count = 0
         self._contact_reset = True
 
     def _add_score(self, amount: int, reason: str) -> None:
@@ -392,7 +399,7 @@ class GameState:
         elif tspin:
             self.back_to_back = True
 
-        return base + combo_bonus
+        return (base * self.level) + combo_bonus
 
     def _lock(self) -> None:
         self._just_locked = True
@@ -459,6 +466,7 @@ class GameState:
         self._fill_queue()
         self._rotated_since_spawn = False
         self._last_kick_used = False
+        self._contact_reset_count = 0
         self._grounded = not self.board.is_valid(self.piece, dy=1)
         self._lock_timer = 0
         self._contact_reset = False
