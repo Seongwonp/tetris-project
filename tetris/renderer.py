@@ -427,35 +427,21 @@ class Renderer:
         lh_title = self.font_title.get_height()
         lh_tiny  = self.font_tiny.get_height()
         lh_med   = self.font_med.get_height()
-        lh_sm    = self.font_sm.get_height()
 
-        y = py + 14
-
-        # 타이틀
-        ts = self.font_title.render(title, True, GOLD)
-        self.screen.blit(ts, ts.get_rect(center=(cx, y + lh_title // 2)))
-        y += lh_title + 8
-        pygame.draw.line(self.screen, BORDER, (px + 10, y), (px + pw - 10, y), 1)
-        y += 10
-
-        # 상단 정보 줄
-        for line in top_lines:
-            line = self._fit_text(line, self.font_tiny, pw - 24)
-            s = self.font_tiny.render(line, True, DIM)
-            self.screen.blit(s, s.get_rect(center=(cx, y + lh_tiny // 2)))
-            y += lh_tiny + 4
-        y += 6
-
-        # 하단 여백 계산
-        blink_h = lh_tiny + 12 if blink else 0
-        footer_y = py + ph - blink_h - 10
-
-        # 아이템 높이 (실제 폰트 메트릭 기반)
+        # ── 수직 중앙 정렬을 위한 높이 사전 계산 ──────────────
         item_pad = 9
-        item_h = lh_med + item_pad * 2
+        item_h   = lh_med + item_pad * 2
+        blink_h  = lh_tiny + 12 if blink else 0
 
-        avail_h = footer_y - y - 4
-        max_vis = max(1, avail_h // item_h)
+        # 헤더 높이 (타이틀 + 구분선 + 정보줄)
+        header_h = lh_title + 8 + 1 + 10
+        for _ in top_lines:
+            header_h += lh_tiny + 4
+        header_h += 8
+
+        # 아이템 영역 최대 크기 계산
+        max_item_area = ph - header_h - blink_h - 20
+        max_vis = max(1, max_item_area // item_h)
 
         # 스크롤 윈도우
         if len(items) > max_vis and selected < 999:
@@ -463,8 +449,34 @@ class Renderer:
         else:
             si = 0
         ei = min(len(items), si + max_vis)
+        visible = ei - si
 
-        # 클리핑으로 패널 바깥 렌더링 방지
+        scroll_top_h    = lh_tiny + 4 if si > 0 else 0
+        scroll_bottom_h = lh_tiny + 4 if ei < len(items) else 0
+        items_block_h   = scroll_top_h + visible * item_h + scroll_bottom_h
+
+        # 전체 콘텐츠 높이 → 수직 중앙 오프셋
+        total_h    = header_h + items_block_h + blink_h
+        top_offset = max(16, (ph - total_h) // 2)
+        y = py + top_offset
+
+        # ── 타이틀 ──────────────────────────────────────────────
+        ts = self.font_title.render(title, True, GOLD)
+        self.screen.blit(ts, ts.get_rect(center=(cx, y + lh_title // 2)))
+        y += lh_title + 8
+        pygame.draw.line(self.screen, BORDER, (px + 10, y), (px + pw - 10, y), 1)
+        y += 10
+
+        # ── 상단 정보 줄 ─────────────────────────────────────────
+        for line in top_lines:
+            line = self._fit_text(line, self.font_tiny, pw - 24)
+            s = self.font_tiny.render(line, True, DIM)
+            self.screen.blit(s, s.get_rect(center=(cx, y + lh_tiny // 2)))
+            y += lh_tiny + 4
+        y += 8
+
+        # ── 아이템 (클리핑으로 패널 밖 렌더링 방지) ──────────────
+        footer_y = py + ph - blink_h - 10
         clip = pygame.Rect(px + 6, y - 2, pw - 12, footer_y - y + 4)
         old_clip = self.screen.get_clip()
         self.screen.set_clip(clip)
